@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kamo Magpies Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #060c14;
+    font-family: 'DM Mono', 'Courier New', monospace;
+    color: #e5e7eb;
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+  button { font-family: 'DM Mono', 'Courier New', monospace; cursor: pointer; }
+  input { font-family: 'DM Mono', 'Courier New', monospace; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .setup-header {
+    background: linear-gradient(180deg, #0b1929 0%, #060c14 100%);
+    border-bottom: 1px solid #1a2535;
+    padding: 28px 16px 20px;
+  }
+  .setup-label { font-size: 11px; color: #10b981; font-weight: 700; letter-spacing: 3px; margin-bottom: 4px; }
+  .setup-title { font-size: 22px; font-weight: 900; color: #f9fafb; letter-spacing: 1px; }
+  .setup-sub { font-size: 12px; color: #4b5563; margin-top: 4px; }
+  .setup-body { padding: 16px; }
+
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; }
+
+  .progress-bar { background: #1a2535; border-radius: 4px; height: 4px; margin-bottom: 16px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; background: #10b981; transition: width 0.2s; }
+
+  .opponent-input {
+    width: 100%; background: #111827; border: 1px solid #374151;
+    border-radius: 10px; color: #f9fafb; padding: 13px 14px;
+    font-size: 15px; outline: none; margin-bottom: 20px;
+    -webkit-appearance: none;
+  }
+  .opponent-input::placeholder { color: #4b5563; }
+
+  .player-row {
+    display: -webkit-flex; display: flex;
+    -webkit-align-items: center; align-items: center;
+    gap: 12px; padding: 13px 14px; margin-bottom: 6px;
+    border-radius: 10px; border: 1px solid #2e4258;
+    background: #1a2a3a; cursor: pointer;
+    -webkit-transition: all 0.15s; transition: all 0.15s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .player-row.selected { background: #0d2d1a; border: 1.5px solid #10b981; }
+  .player-row.disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .player-avatar {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: #2a3f55;
+    display: -webkit-flex; display: flex;
+    -webkit-align-items: center; align-items: center;
+    -webkit-justify-content: center; justify-content: center;
+    -webkit-flex-shrink: 0; flex-shrink: 0;
+    font-size: 11px; color: #8aafc8; font-weight: 700;
+  }
+  .player-row.selected .player-avatar { background: #10b981; color: #000; font-size: 14px; font-weight: 900; }
+  .player-name { font-size: 15px; font-weight: 500; color: #c5d8e8; -webkit-flex: 1; flex: 1; }
+  .player-row.selected .player-name { font-weight: 700; color: #d1fae5; }
+  .player-badge { font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+  .badge-starting { color: #10b981; }
+  .badge-bench { color: #6a90b0; }
+
+  .kick-off-btn { margin-top: 16px; width: 100%; padding: 16px; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; letter-spacing: 1px; -webkit-appearance: none; }
+  .kick-off-btn.ready { background: #10b981; color: #000; cursor: pointer; }
+  .kick-off-btn.not-ready { background: #1a2535; color: #374151; cursor: not-allowed; }
+
+  .scoreboard { background: linear-gradient(180deg, #0b1929 0%, #060c14 100%); border-bottom: 1px solid #1a2535; padding: 24px 16px 16px; }
+  .score-row { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: space-between; justify-content: space-between; margin-bottom: 8px; }
+  .team-name { font-size: 12px; font-weight: 700; color: #f9fafb; letter-spacing: 1px; text-transform: uppercase; -webkit-flex: 1; flex: 1; }
+  .team-name.away { color: #9ca3af; text-align: right; }
+
+  .timer-block { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-align-items: center; align-items: center; gap: 2px; }
+  .half-badge { font-size: 9px; font-weight: 700; letter-spacing: 2px; border-radius: 4px; padding: 2px 7px; text-transform: uppercase; }
+  .timer-display { font-size: 13px; font-weight: 900; letter-spacing: 3px; color: #6b7280; }
+  .timer-display.running { color: #facc15; }
+  .timer-display.paused { color: #fb923c; }
+
+  .scores-row { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; margin-bottom: 16px; }
+  .score-num { -webkit-flex: 1; flex: 1; text-align: center; font-size: 72px; font-weight: 900; line-height: 1; color: #f9fafb; }
+  .score-num.away { color: #9ca3af; }
+  .score-sep { font-size: 28px; color: #1f2937; padding: 0 4px; font-weight: 300; }
+
+  .controls-row { display: -webkit-flex; display: flex; gap: 8px; }
+  .goal-col { -webkit-flex: 1; flex: 1; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; gap: 4px; }
+  .goal-btn { border: none; border-radius: 8px; padding: 11px; font-weight: 900; font-size: 13px; letter-spacing: 1px; -webkit-appearance: none; }
+  .goal-btn.home { background: #10b981; color: #000; }
+  .goal-btn.away { background: #1a2535; color: #9ca3af; border: 1px solid #374151; }
+  .undo-btn { background: #0f1923; color: #4b5563; border: 1px solid #1a2535; border-radius: 6px; padding: 5px; font-weight: 700; font-size: 10px; -webkit-appearance: none; }
+  .center-col { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; gap: 4px; -webkit-align-items: center; align-items: center; }
+  .start-btn { border-radius: 8px; padding: 11px 14px; font-weight: 900; font-size: 11px; letter-spacing: 1px; min-width: 76px; -webkit-appearance: none; }
+  .start-btn.running { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
+  .start-btn.stopped { background: #1e3a5f; color: #93c5fd; border: 1px solid #3b82f6; }
+  .reset-btn { background: #0f1923; color: #4b5563; border: 1px solid #1a2535; border-radius: 6px; padding: 5px 10px; font-weight: 700; font-size: 10px; -webkit-appearance: none; }
+
+  .tabs { display: -webkit-flex; display: flex; gap: 4px; padding: 12px 16px; border-bottom: 1px solid #1a2535; }
+  .tab-btn { -webkit-flex: 1; flex: 1; padding: 9px 0; border-radius: 8px; border: none; font-weight: 700; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; background: transparent; color: #6b7280; -webkit-appearance: none; }
+  .tab-btn.active { background: #10b981; color: #000; }
+
+  .tab-content { display: none; padding: 16px; }
+  .tab-content.active { display: block; }
+
+  .sub-banner { border-radius: 9px; padding: 11px 14px; margin-bottom: 14px; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: space-between; justify-content: space-between; }
+  .sub-banner.select-out { background: #0d2d1a; border: 1px solid #10b981; }
+  .sub-banner.select-in { background: #1c1505; border: 1px solid #ca8a04; }
+  .sub-banner-text { font-size: 12px; font-weight: 700; }
+  .sub-banner.select-out .sub-banner-text { color: #6ee7b7; }
+  .sub-banner.select-in .sub-banner-text { color: #fde68a; }
+  .cancel-sub-btn { background: none; border: none; color: #6b7280; font-size: 12px; }
+
+  .field-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #374151; margin-bottom: 8px; text-transform: uppercase; }
+  .field-label.mt { margin-top: 20px; }
+
+  .on-field-row { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 5px; border-radius: 9px; background: #0f1923; border: 1px solid #1a2535; }
+  .on-field-row.selectable { cursor: pointer; }
+  .on-field-row.selected-out { background: #0d2d1a; border: 1.5px solid #10b981; }
+  .on-field-row.dimmed { opacity: 0.35; }
+  .field-avatar { width: 34px; height: 34px; border-radius: 8px; background: #1a2535; color: #6b7280; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; font-size: 12px; font-weight: 900; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .on-field-row.selected-out .field-avatar { background: #10b981; color: #000; }
+  .field-name { font-size: 15px; font-weight: 600; color: #e5e7eb; -webkit-flex: 1; flex: 1; }
+  .on-field-row.selected-out .field-name { color: #d1fae5; }
+  .coming-off-tag { font-size: 10px; color: #10b981; font-weight: 700; }
+
+  .bench-row { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 5px; border-radius: 9px; background: #162030; border: 1px solid #2a3a50; }
+  .bench-row.can-select { background: #0d2d1a; border: 1.5px solid #10b98166; cursor: pointer; }
+  .bench-row.faded { opacity: 0.3; }
+  .bench-avatar { width: 34px; height: 34px; border-radius: 8px; background: #1e2f42; color: #7a9bbf; border: 1px solid #2a3a50; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; font-size: 12px; font-weight: 900; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .bench-row.can-select .bench-avatar { background: #10b98122; color: #10b981; border-color: #10b98144; }
+  .bench-name { font-size: 15px; font-weight: 500; color: #b0c8e0; -webkit-flex: 1; flex: 1; }
+  .bench-row.can-select .bench-name { color: #a7f3d0; }
+  .bench-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #4a6a8a; }
+  .bench-row.can-select .bench-tag { color: #10b981; }
+
+  .make-sub-btn { margin-top: 22px; width: 100%; padding: 14px; background: transparent; border: 1.5px solid #10b981; border-radius: 10px; color: #10b981; font-weight: 900; font-size: 13px; letter-spacing: 1px; -webkit-appearance: none; }
+
+  .sub-history-row { display: -webkit-flex; display: flex; gap: 12px; -webkit-align-items: center; align-items: center; padding: 12px 14px; margin-bottom: 6px; background: #0d2d1a; border-radius: 9px; border: 1px solid #10b98133; }
+  .sub-time { font-size: 11px; font-weight: 700; color: #10b981; min-width: 28px; }
+  .sub-text { font-size: 13px; color: #d1fae5; }
+
+  .squad-status-row { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 4px; border-radius: 8px; }
+  .squad-status-row.on-field { background: #0f1923; border: 1px solid #1a2535; }
+  .squad-status-row.on-bench { background: #121e2e; border: 1px solid #1e3048; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .status-dot.on { background: #10b981; }
+  .status-dot.off { background: #374151; }
+  .status-name { font-size: 13px; -webkit-flex: 1; flex: 1; }
+  .squad-status-row.on-field .status-name { color: #e5e7eb; }
+  .squad-status-row.on-bench .status-name { color: #8aafc8; }
+  .status-tag { font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+  .squad-status-row.on-field .status-tag { color: #10b981; }
+  .squad-status-row.on-bench .status-tag { color: #374151; }
+
+  .log-row { display: -webkit-flex; display: flex; gap: 12px; -webkit-align-items: flex-start; align-items: flex-start; padding: 10px 12px; background: #0f1923; border-radius: 8px; border: 1px solid #1a2535; margin-bottom: 5px; }
+  .log-time { font-size: 10px; font-weight: 700; color: #10b981; min-width: 28px; margin-top: 2px; }
+  .log-msg { font-size: 13px; color: #d1d5db; }
+  .empty-state { font-size: 13px; color: #374151; padding: 24px 0; text-align: center; }
+
+  .save-sheet-btn { margin-top: 20px; width: 100%; padding: 14px; background: #0a1f14; border: 1.5px solid #10b981; border-radius: 10px; color: #10b981; font-weight: 900; font-size: 13px; letter-spacing: 1px; -webkit-appearance: none; }
+
+  .modal-overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.87); display: none; -webkit-align-items: flex-end; align-items: flex-end; -webkit-justify-content: center; justify-content: center; z-index: 100; }
+  .modal-overlay.open { display: -webkit-flex; display: flex; }
+  .modal-sheet { background: #0b1929; border-radius: 18px 18px 0 0; width: 100%; max-width: 480px; border: 1px solid #1a2535; border-bottom: none; padding: 24px 20px 40px; }
+  .modal-sheet.tall { padding: 0; max-height: 80vh; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+  .modal-tag { font-size: 11px; color: #10b981; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
+  .modal-title { font-size: 18px; font-weight: 900; color: #f9fafb; margin-bottom: 20px; }
+
+  .preview-box { background: #060c14; border-radius: 10px; padding: 14px; margin-bottom: 20px; border: 1px solid #1a2535; }
+  .preview-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; margin-bottom: 8px; }
+  .preview-row:last-child { margin-bottom: 0; }
+  .preview-label { font-size: 11px; color: #6b7280; }
+  .preview-value { font-size: 11px; color: #e5e7eb; font-weight: 700; }
+  .preview-value.green { color: #10b981; font-weight: 900; }
+
+  .modal-btn-row { display: -webkit-flex; display: flex; gap: 8px; }
+  .modal-cancel { -webkit-flex: 1; flex: 1; padding: 13px; background: #1a2535; border: none; border-radius: 10px; color: #9ca3af; font-weight: 700; font-size: 12px; -webkit-appearance: none; }
+  .modal-save { -webkit-flex: 2; flex: 2; padding: 13px; background: #10b981; border: none; border-radius: 10px; color: #000; font-weight: 900; font-size: 13px; -webkit-appearance: none; }
+  .modal-save.saving { background: #065f46; cursor: not-allowed; }
+
+  .success-box { text-align: center; padding: 16px 0; }
+  .success-icon { font-size: 44px; margin-bottom: 12px; }
+  .success-title { font-size: 20px; font-weight: 900; color: #10b981; margin-bottom: 8px; }
+  .success-sub { font-size: 13px; color: #6b7280; margin-bottom: 28px; }
+  .success-btn { width: 100%; padding: 14px; background: #10b981; border: none; border-radius: 10px; color: #000; font-weight: 900; font-size: 13px; -webkit-appearance: none; }
+  .error-title { font-size: 20px; font-weight: 900; color: #ef4444; margin-bottom: 8px; }
+
+  .scorer-header { padding: 20px 20px 12px; }
+  .scorer-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 20px 8px; -webkit-flex: 1; flex: 1; }
+  .scorer-player { padding: 13px 14px; margin-bottom: 6px; border-radius: 10px; background: #0f1923; border: 1px solid #1a2535; cursor: pointer; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; gap: 10px; }
+  .scorer-player.bench-player { background: #162030; border-color: #2a3a50; }
+  .scorer-avatar { width: 32px; height: 32px; border-radius: 8px; background: #1a2535; color: #6b7280; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; font-size: 11px; font-weight: 900; -webkit-flex-shrink: 0; flex-shrink: 0; }
+  .scorer-player.bench-player .scorer-avatar { background: #1e2f42; color: #7a9bbf; }
+  .scorer-name { font-size: 15px; font-weight: 600; color: #e5e7eb; }
+  .scorer-player.bench-player .scorer-name { font-weight: 500; color: #b0c8e0; }
+  .scorer-bench-tag { font-size: 10px; color: #4a6a8a; margin-left: auto; }
+  .scorer-footer { padding: 12px 20px 36px; border-top: 1px solid #1a2535; display: -webkit-flex; display: flex; gap: 8px; }
+  .scorer-cancel { -webkit-flex: 1; flex: 1; padding: 12px; background: #1a2535; border: none; border-radius: 10px; color: #9ca3af; font-weight: 700; font-size: 12px; -webkit-appearance: none; }
+  .scorer-no-name { -webkit-flex: 2; flex: 2; padding: 12px; background: #374151; border: none; border-radius: 10px; color: #9ca3af; font-weight: 700; font-size: 12px; -webkit-appearance: none; }
+
+  .halftime-overlay { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,0.93); display: none; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; z-index: 200; -webkit-flex-direction: column; flex-direction: column; gap: 16px; padding: 24px; }
+  .halftime-overlay.open { display: -webkit-flex; display: flex; }
+  .halftime-tag { font-size: 13px; color: #f59e0b; font-weight: 700; letter-spacing: 4px; }
+  .halftime-score { font-size: 80px; font-weight: 900; color: #f9fafb; line-height: 1; text-align: center; }
+  .halftime-sep { font-size: 40px; color: #374151; }
+  .halftime-teams { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+  .halftime-time { font-size: 12px; color: #4b5563; margin-bottom: 16px; }
+  .halftime-start { padding: 16px 48px; background: #10b981; border: none; border-radius: 12px; color: #000; font-weight: 900; font-size: 15px; letter-spacing: 1px; -webkit-appearance: none; }
+  .halftime-dismiss { padding: 10px 24px; background: transparent; border: 1px solid #374151; border-radius: 10px; color: #6b7280; font-weight: 700; font-size: 12px; -webkit-appearance: none; }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="screen-setup" class="screen active">
+  <div class="setup-header">
+    <div class="setup-label">KAMO MAGPIES</div>
+    <div class="setup-title">Match Setup</div>
+    <div class="setup-sub" id="selected-count">0/9 selected</div>
+  </div>
+  <div class="setup-body">
+    <div class="section-label">Opponent</div>
+    <input class="opponent-input" id="opponent-input" type="text" placeholder="e.g. Whangarei Boys" autocomplete="off" autocorrect="off" />
+    <div class="section-label">Starting 9</div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div id="player-list"></div>
+    <button class="kick-off-btn not-ready" id="kick-off-btn">Select 9 more players</button>
+  </div>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="screen-game" class="screen">
+  <div class="scoreboard">
+    <div class="score-row">
+      <div class="team-name">Kamo Magpies</div>
+      <div class="timer-block">
+        <div class="half-badge" id="half-badge">1ST HALF</div>
+        <div class="timer-display" id="timer-display">00:00</div>
+      </div>
+      <div class="team-name away" id="away-team-name">Opposition</div>
+    </div>
+    <div class="scores-row">
+      <div class="score-num" id="home-score-display">0</div>
+      <div class="score-sep">:</div>
+      <div class="score-num away" id="away-score-display">0</div>
+    </div>
+    <div class="controls-row">
+      <div class="goal-col">
+        <button class="goal-btn home" id="home-goal-btn">+ GOAL</button>
+        <button class="undo-btn" id="home-undo-btn">UNDO</button>
+      </div>
+      <div class="center-col">
+        <button class="start-btn stopped" id="start-btn">&#9654; START</button>
+        <button class="reset-btn" id="reset-btn">RESET</button>
+      </div>
+      <div class="goal-col">
+        <button class="goal-btn away" id="away-goal-btn">+ GOAL</button>
+        <button class="undo-btn" id="away-undo-btn">UNDO</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-squad">Squad</button>
+    <button class="tab-btn" id="tab-subs">Subs</button>
+    <button class="tab-btn" id="tab-log">Log</button>
+  </div>
+
+  <div class="tab-content active" id="content-squad">
+    <div id="sub-banner" style="display:none"></div>
+    <div class="field-label" id="on-field-label">On Field — 0/9</div>
+    <div id="on-field-list"></div>
+    <div class="field-label mt" id="bench-label">Bench — 0</div>
+    <div id="bench-list"></div>
+    <div id="make-sub-wrap"></div>
+  </div>
+
+  <div class="tab-content" id="content-subs">
+    <div class="field-label">Substitution History</div>
+    <div id="sub-history-list"></div>
+    <div class="field-label mt">Current Squad Status</div>
+    <div id="squad-status-list"></div>
+  </div>
+
+  <div class="tab-content" id="content-log">
+    <div class="field-label">Match Log</div>
+    <div id="log-list"></div>
+    <button class="save-sheet-btn" id="save-sheet-btn">&#128202; SAVE TO GOOGLE SHEET</button>
+  </div>
+</div>
+
+<!-- HALF TIME OVERLAY -->
+<div class="halftime-overlay" id="halftime-overlay">
+  <div class="halftime-tag">HALF TIME</div>
+  <div class="halftime-score">
+    <span id="ht-home">0</span>
+    <span class="halftime-sep"> : </span>
+    <span id="ht-away">0</span>
+  </div>
+  <div class="halftime-teams" id="ht-teams">Kamo Magpies vs Opposition</div>
+  <div class="halftime-time">27' 30" played</div>
+  <button class="halftime-start" id="ht-start-btn">&#9654; START 2ND HALF</button>
+  <button class="halftime-dismiss" id="ht-dismiss-btn">Dismiss</button>
+</div>
+
+<!-- SAVE MODAL -->
+<div class="modal-overlay" id="save-modal">
+  <div class="modal-sheet">
+    <div id="save-content"></div>
+  </div>
+</div>
+
+<!-- SCORER MODAL -->
+<div class="modal-overlay" id="scorer-modal">
+  <div class="modal-sheet tall">
+    <div class="scorer-header">
+      <div class="modal-tag" id="scorer-team-label">KAMO MAGPIES</div>
+      <div style="font-size:18px;font-weight:900;color:#f9fafb;">Who scored? &#9917;</div>
+    </div>
+    <div class="scorer-scroll" id="scorer-list"></div>
+    <div class="scorer-footer">
+      <button class="scorer-cancel" id="scorer-cancel-btn">Cancel</button>
+      <button class="scorer-no-name" id="scorer-no-name-btn">Log without scorer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var SHEET_URL = "https://script.google.com/macros/s/AKfycbzM_wx-4Onzhb3KaYTrfZPZVM-hESuLR7IsOPP82dILD0YcfB9RSJ6bZ1hC1V60wHPMrg/exec";
+var HALF_DURATION = 27.5 * 60;
+
+var ALL_PLAYERS = [
+  { id: 1, name: "Max B" }, { id: 2, name: "Max" }, { id: 3, name: "Gracie" },
+  { id: 4, name: "Cole" }, { id: 5, name: "Mason" }, { id: 6, name: "Declan" },
+  { id: 7, name: "Richie" }, { id: 8, name: "Jacob" }, { id: 9, name: "Jax" },
+  { id: 10, name: "Katie" }, { id: 11, name: "Benji" }, { id: 12, name: "Rivah" },
+  { id: 13, name: "Wayne" }
+];
+
+var startingIds = [1,2,3,4,5,6,7,8,9];
+var players = [];
+var homeScore = 0, awayScore = 0;
+var gameTime = 0;
+var half = 1;
+var isRunning = false;
+var halfTimeTriggered = false;
+var matchLog = [];
+var subStep = null;
+var playerOut = null;
+var scoringTeam = null;
+var timerInterval = null;
+var opponent = "";
+
+// ── SETUP ──
+function renderSetup() {
+  var list = document.getElementById('player-list');
+  list.innerHTML = '';
+
+  for (var i = 0; i < ALL_PLAYERS.length; i++) {
+    var p = ALL_PLAYERS[i];
+    var selected = startingIds.indexOf(p.id) !== -1;
+    var full = startingIds.length >= 9 && !selected;
+
+    var div = document.createElement('div');
+    var cls = 'player-row';
+    if (selected) cls += ' selected';
+    if (full) cls += ' disabled';
+    div.className = cls;
+
+    var avatar = document.createElement('div');
+    avatar.className = 'player-avatar';
+    avatar.textContent = selected ? '✓' : String(p.id);
+
+    var nameEl = document.createElement('span');
+    nameEl.className = 'player-name';
+    nameEl.textContent = p.name;
+
+    var badge = document.createElement('span');
+    badge.className = 'player-badge ' + (selected ? 'badge-starting' : 'badge-bench');
+    badge.textContent = selected ? 'STARTING' : (full ? '' : 'BENCH');
+
+    div.appendChild(avatar);
+    div.appendChild(nameEl);
+    div.appendChild(badge);
+
+    if (!full) {
+      (function(pid) {
+        div.addEventListener('click', function() { toggleStarting(pid); });
+      })(p.id);
+    }
+
+    list.appendChild(div);
+  }
+
+  document.getElementById('selected-count').textContent = startingIds.length + '/9 selected';
+  document.getElementById('progress-fill').style.width = ((startingIds.length / 9) * 100) + '%';
+
+  var btn = document.getElementById('kick-off-btn');
+  if (startingIds.length === 9) {
+    btn.className = 'kick-off-btn ready';
+    btn.textContent = '▶ KICK OFF';
+  } else {
+    btn.className = 'kick-off-btn not-ready';
+    var rem = 9 - startingIds.length;
+    btn.textContent = 'Select ' + rem + ' more player' + (rem !== 1 ? 's' : '');
+  }
+}
+
+function toggleStarting(id) {
+  var idx = startingIds.indexOf(id);
+  if (idx !== -1) {
+    startingIds.splice(idx, 1);
+  } else if (startingIds.length < 9) {
+    startingIds.push(id);
+  }
+  renderSetup();
+}
+
+function startGame() {
+  if (startingIds.length !== 9) return;
+  opponent = document.getElementById('opponent-input').value.trim();
+  players = ALL_PLAYERS.map(function(p) {
+    return { id: p.id, name: p.name, onField: startingIds.indexOf(p.id) !== -1 };
+  });
+  document.getElementById('away-team-name').textContent = opponent || 'Opposition';
+  document.getElementById('ht-teams').textContent = 'Kamo Magpies vs ' + (opponent || 'Opposition');
+  showScreen('game');
+  renderSquad();
+  switchTab('squad');
+}
+
+// ── TIMER ──
+function toggleTimer() {
+  if (isRunning) { pauseTimer(); } else { startTimerFn(); }
+}
+
+function startTimerFn() {
+  if (isRunning) return;
+  isRunning = true;
+  updateStartBtn();
+  timerInterval = setInterval(function() {
+    gameTime++;
+    updateTimerDisplay();
+    if (half === 1 && gameTime >= HALF_DURATION && !halfTimeTriggered) {
+      halfTimeTriggered = true;
+      pauseTimer();
+      openHalfTime();
+    }
+  }, 1000);
+}
+
+function pauseTimer() {
+  isRunning = false;
+  clearInterval(timerInterval);
+  updateStartBtn();
+}
+
+function updateStartBtn() {
+  var btn = document.getElementById('start-btn');
+  if (isRunning) {
+    btn.className = 'start-btn running';
+    btn.textContent = '⏸ PAUSE';
+  } else {
+    btn.className = 'start-btn stopped';
+    btn.textContent = '▶ START';
+  }
+}
+
+function updateTimerDisplay() {
+  var m = Math.floor(gameTime / 60);
+  var s = gameTime % 60;
+  var el = document.getElementById('timer-display');
+  el.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  el.className = 'timer-display' + (isRunning ? ' running' : (gameTime > 0 ? ' paused' : ''));
+}
+
+function currentMin() { return Math.floor(gameTime / 60); }
+
+// ── HALF TIME ──
+function openHalfTime() {
+  document.getElementById('ht-home').textContent = homeScore;
+  document.getElementById('ht-away').textContent = awayScore;
+  document.getElementById('halftime-overlay').classList.add('open');
+  updateHalfBadge();
+}
+
+function dismissHalfTime() {
+  document.getElementById('halftime-overlay').classList.remove('open');
+}
+
+function startSecondHalf() {
+  dismissHalfTime();
+  half = 2;
+  gameTime = 0;
+  halfTimeTriggered = false;
+  updateHalfBadge();
+  updateTimerDisplay();
+  addLog('▶ Second half kicked off');
+  startTimerFn();
+}
+
+function updateHalfBadge() {
+  var badge = document.getElementById('half-badge');
+  badge.textContent = half === 1 ? '1ST HALF' : '2ND HALF';
+  badge.style.cssText = 'color:#10b981;background:#10b98122;border:1px solid #10b98144;font-size:9px;font-weight:700;letter-spacing:2px;border-radius:4px;padding:2px 7px;text-transform:uppercase;';
+}
+
+// ── GOALS ──
+function openGoalModal(team) {
+  scoringTeam = team;
+  document.getElementById('scorer-team-label').textContent = team === 'home' ? 'KAMO MAGPIES' : (opponent || 'OPPOSITION').toUpperCase();
+
+  var list = document.getElementById('scorer-list');
+  list.innerHTML = '';
+
+  if (team === 'home') {
+    var onField = players.filter(function(p) { return p.onField; });
+    var bench = players.filter(function(p) { return !p.onField; });
+    onField.concat(bench).forEach(function(p, idx) {
+      var isBench = idx >= onField.length;
+      var div = document.createElement('div');
+      div.className = 'scorer-player' + (isBench ? ' bench-player' : '');
+
+      var av = document.createElement('div');
+      av.className = 'scorer-avatar';
+      av.textContent = String(p.id);
+
+      var nm = document.createElement('span');
+      nm.className = 'scorer-name';
+      nm.textContent = p.name;
+
+      div.appendChild(av);
+      div.appendChild(nm);
+
+      if (isBench) {
+        var bt = document.createElement('span');
+        bt.className = 'scorer-bench-tag';
+        bt.textContent = 'BENCH';
+        div.appendChild(bt);
+      }
+
+      (function(pname) {
+        div.addEventListener('click', function() { confirmGoal(pname); });
+      })(p.name);
+
+      list.appendChild(div);
+    });
+  } else {
+    var msg = document.createElement('p');
+    msg.style.cssText = 'padding:8px 0 16px;color:#6b7280;font-size:13px;';
+    msg.textContent = "Opposition players aren't tracked — tap below to log the goal.";
+    list.appendChild(msg);
+  }
+
+  document.getElementById('scorer-modal').classList.add('open');
+}
+
+function closeScorer() {
+  document.getElementById('scorer-modal').classList.remove('open');
+  scoringTeam = null;
+}
+
+function confirmGoal(scorerName) {
+  if (scoringTeam === 'home') {
+    homeScore++;
+    document.getElementById('home-score-display').textContent = homeScore;
+    addLog(scorerName ? '⚽ GOAL — Kamo Magpies · ' + scorerName : '⚽ GOAL — Kamo Magpies');
+  } else {
+    awayScore++;
+    document.getElementById('away-score-display').textContent = awayScore;
+    addLog(scorerName ? '⚽ GOAL — ' + (opponent || 'Opposition') + ' · ' + scorerName : '⚽ GOAL — ' + (opponent || 'Opposition'));
+  }
+  closeScorer();
+}
+
+function undoGoal(team) {
+  if (team === 'home' && homeScore > 0) {
+    homeScore--;
+    document.getElementById('home-score-display').textContent = homeScore;
+    addLog('↩ Goal cancelled — Kamo Magpies');
+  } else if (team === 'away' && awayScore > 0) {
+    awayScore--;
+    document.getElementById('away-score-display').textContent = awayScore;
+    addLog('↩ Goal cancelled — ' + (opponent || 'Opposition'));
+  }
+}
+
+// ── LOG ──
+function addLog(msg) {
+  matchLog.push({ time: currentMin() + "'", msg: msg, id: Date.now() });
+  if (document.getElementById('content-log').classList.contains('active')) renderLog();
+  updateSubsTab();
+}
+
+function renderLog() {
+  var list = document.getElementById('log-list');
+  if (matchLog.length === 0) {
+    list.innerHTML = '<div class="empty-state">Match events will appear here</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (var i = 0; i < matchLog.length; i++) {
+    var e = matchLog[i];
+    var row = document.createElement('div');
+    row.className = 'log-row';
+    var t = document.createElement('span');
+    t.className = 'log-time';
+    t.textContent = e.time;
+    var m = document.createElement('span');
+    m.className = 'log-msg';
+    m.textContent = e.msg;
+    row.appendChild(t);
+    row.appendChild(m);
+    list.appendChild(row);
+  }
+  list.scrollTop = list.scrollHeight;
+}
+
+// ── SUBS ──
+function cancelSub() { subStep = null; playerOut = null; renderSquad(); }
+
+function selectOut(p) { playerOut = p; subStep = 'selectIn'; renderSquad(); }
+
+function selectIn(p) {
+  players = players.map(function(pl) {
+    if (pl.id === playerOut.id) return { id: pl.id, name: pl.name, onField: false };
+    if (pl.id === p.id) return { id: pl.id, name: pl.name, onField: true };
+    return pl;
+  });
+  addLog('🔄 ' + p.name + ' ON · ' + playerOut.name + ' OFF');
+  subStep = null; playerOut = null;
+  renderSquad();
+  updateSubsTab();
+}
+
+function renderSquad() {
+  var onField = players.filter(function(p) { return p.onField; });
+  var bench = players.filter(function(p) { return !p.onField; });
+
+  // Banner
+  var banner = document.getElementById('sub-banner');
+  banner.innerHTML = '';
+  if (subStep === 'selectOut') {
+    banner.style.display = 'flex';
+    banner.className = 'sub-banner select-out';
+    var bt = document.createElement('span');
+    bt.className = 'sub-banner-text';
+    bt.textContent = 'TAP player coming OFF';
+    var cb = document.createElement('button');
+    cb.className = 'cancel-sub-btn';
+    cb.textContent = 'Cancel';
+    cb.addEventListener('click', cancelSub);
+    banner.appendChild(bt);
+    banner.appendChild(cb);
+  } else if (subStep === 'selectIn') {
+    banner.style.display = 'flex';
+    banner.className = 'sub-banner select-in';
+    var bt2 = document.createElement('span');
+    bt2.className = 'sub-banner-text';
+    bt2.textContent = (playerOut ? playerOut.name : '') + ' OFF — TAP player coming ON';
+    var cb2 = document.createElement('button');
+    cb2.className = 'cancel-sub-btn';
+    cb2.textContent = 'Cancel';
+    cb2.addEventListener('click', cancelSub);
+    banner.appendChild(bt2);
+    banner.appendChild(cb2);
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // On field
+  document.getElementById('on-field-label').textContent = 'On Field — ' + onField.length + '/9';
+  var fieldList = document.getElementById('on-field-list');
+  fieldList.innerHTML = '';
+  for (var i = 0; i < onField.length; i++) {
+    var p = onField[i];
+    var isSelected = playerOut && playerOut.id === p.id;
+    var dimmed = subStep === 'selectIn' && !isSelected;
+    var cls = 'on-field-row';
+    if (subStep === 'selectOut') cls += ' selectable';
+    if (isSelected) cls += ' selected-out';
+    if (dimmed) cls += ' dimmed';
+
+    var row = document.createElement('div');
+    row.className = cls;
+
+    var av = document.createElement('div');
+    av.className = 'field-avatar';
+    av.textContent = String(p.id);
+
+    var nm = document.createElement('span');
+    nm.className = 'field-name';
+    nm.textContent = p.name;
+
+    row.appendChild(av);
+    row.appendChild(nm);
+
+    if (isSelected) {
+      var tag = document.createElement('span');
+      tag.className = 'coming-off-tag';
+      tag.textContent = 'COMING OFF';
+      row.appendChild(tag);
+    }
+
+    if (subStep === 'selectOut') {
+      (function(player) {
+        row.addEventListener('click', function() { selectOut(player); });
+      })(p);
+    }
+
+    fieldList.appendChild(row);
+  }
+
+  // Bench
+  document.getElementById('bench-label').textContent = 'Bench — ' + bench.length;
+  var benchList = document.getElementById('bench-list');
+  benchList.innerHTML = '';
+  if (bench.length === 0) {
+    var empty = document.createElement('div');
+    empty.style.cssText = 'font-size:12px;color:#374151;';
+    empty.textContent = 'No players on bench';
+    benchList.appendChild(empty);
+  } else {
+    for (var j = 0; j < bench.length; j++) {
+      var bp = bench[j];
+      var canSelect = subStep === 'selectIn';
+      var faded = subStep === 'selectOut';
+      var bcls = 'bench-row';
+      if (canSelect) bcls += ' can-select';
+      if (faded) bcls += ' faded';
+
+      var brow = document.createElement('div');
+      brow.className = bcls;
+
+      var bav = document.createElement('div');
+      bav.className = 'bench-avatar';
+      bav.textContent = String(bp.id);
+
+      var bnm = document.createElement('span');
+      bnm.className = 'bench-name';
+      bnm.textContent = bp.name;
+
+      var btag = document.createElement('span');
+      btag.className = 'bench-tag';
+      btag.textContent = canSelect ? 'TAP TO BRING ON ↑' : 'BENCH';
+
+      brow.appendChild(bav);
+      brow.appendChild(bnm);
+      brow.appendChild(btag);
+
+      if (canSelect) {
+        (function(player) {
+          brow.addEventListener('click', function() { selectIn(player); });
+        })(bp);
+      }
+
+      benchList.appendChild(brow);
+    }
+  }
+
+  // Make sub button
+  var wrap = document.getElementById('make-sub-wrap');
+  wrap.innerHTML = '';
+  if (!subStep && bench.length > 0) {
+    var btn = document.createElement('button');
+    btn.className = 'make-sub-btn';
+    btn.textContent = '🔄 MAKE SUBSTITUTION';
+    btn.addEventListener('click', function() { subStep = 'selectOut'; renderSquad(); });
+    wrap.appendChild(btn);
+  } else if (bench.length === 0 && !subStep) {
+    var allOn = document.createElement('div');
+    allOn.className = 'empty-state';
+    allOn.textContent = 'All players are on the field';
+    wrap.appendChild(allOn);
+  }
+}
+
+function updateSubsTab() {
+  var subHistory = matchLog.filter(function(e) { return e.msg.indexOf('🔄') === 0; });
+  document.getElementById('tab-subs').textContent = subHistory.length > 0 ? 'Subs (' + subHistory.length + ')' : 'Subs';
+
+  var histList = document.getElementById('sub-history-list');
+  histList.innerHTML = '';
+  if (subHistory.length === 0) {
+    histList.innerHTML = '<div class="empty-state">No substitutions made yet</div>';
+  } else {
+    for (var i = 0; i < subHistory.length; i++) {
+      var e = subHistory[i];
+      var row = document.createElement('div');
+      row.className = 'sub-history-row';
+      var t = document.createElement('span');
+      t.className = 'sub-time';
+      t.textContent = e.time;
+      var m = document.createElement('span');
+      m.className = 'sub-text';
+      m.textContent = e.msg.replace('🔄 ', '');
+      row.appendChild(t);
+      row.appendChild(m);
+      histList.appendChild(row);
+    }
+  }
+
+  var statusList = document.getElementById('squad-status-list');
+  statusList.innerHTML = '';
+  for (var j = 0; j < players.length; j++) {
+    var p = players[j];
+    var srow = document.createElement('div');
+    srow.className = 'squad-status-row ' + (p.onField ? 'on-field' : 'on-bench');
+    var dot = document.createElement('div');
+    dot.className = 'status-dot ' + (p.onField ? 'on' : 'off');
+    var snm = document.createElement('span');
+    snm.className = 'status-name';
+    snm.textContent = p.name;
+    var stag = document.createElement('span');
+    stag.className = 'status-tag';
+    stag.textContent = p.onField ? 'ON' : 'BENCH';
+    srow.appendChild(dot);
+    srow.appendChild(snm);
+    srow.appendChild(stag);
+    statusList.appendChild(srow);
+  }
+}
+
+// ── SAVE TO SHEET ──
+function openSaveModal() {
+  renderSaveModal('default');
+  document.getElementById('save-modal').classList.add('open');
+}
+
+function closeSaveModal() {
+  document.getElementById('save-modal').classList.remove('open');
+}
+
+function renderSaveModal(state) {
+  var kamoGoals = matchLog.filter(function(e) { return e.msg.indexOf('⚽') === 0 && e.msg.indexOf('Kamo') !== -1; }).length;
+  var subCount = matchLog.filter(function(e) { return e.msg.indexOf('🔄') === 0; }).length;
+  var today = new Date().toLocaleDateString('en-NZ');
+  var opp = opponent || 'Opposition';
+  var content = document.getElementById('save-content');
+
+  if (state === 'success') {
+    content.innerHTML = '<div class="success-box"><div class="success-icon">&#9989;</div><div class="success-title">Saved to Sheet!</div><div class="success-sub">Match data has been added to your Google Sheet.</div><button class="success-btn" id="save-done-btn">Done</button></div>';
+    document.getElementById('save-done-btn').addEventListener('click', closeSaveModal);
+  } else if (state === 'error') {
+    content.innerHTML = '<div class="success-box"><div class="success-icon">&#10060;</div><div class="error-title">Save failed</div><div class="success-sub">Check your internet connection and try again.</div><div class="modal-btn-row"><button class="modal-cancel" id="save-err-cancel">Cancel</button><button class="modal-save" id="save-err-retry">Try Again</button></div></div>';
+    document.getElementById('save-err-cancel').addEventListener('click', closeSaveModal);
+    document.getElementById('save-err-retry').addEventListener('click', doSave);
+  } else if (state === 'saving') {
+    content.innerHTML = '<div class="success-box"><div class="success-icon">&#8987;</div><div class="success-title" style="color:#10b981;">Saving...</div><div class="success-sub">Sending match data to Google Sheet.</div></div>';
+  } else {
+    content.innerHTML = '<div class="modal-tag">SAVE MATCH</div><div class="modal-title">Save to Google Sheet</div><div class="preview-box"><div class="preview-row"><span class="preview-label">Date</span><span class="preview-value">' + today + '</span></div><div class="preview-row"><span class="preview-label">Opponent</span><span class="preview-value">' + opp + '</span></div><div class="preview-row"><span class="preview-label">Result</span><span class="preview-value green">Kamo ' + homeScore + ' \u2013 ' + awayScore + ' ' + opp + '</span></div><div class="preview-row"><span class="preview-label">Kamo Scorers</span><span class="preview-value">' + kamoGoals + ' goal' + (kamoGoals !== 1 ? 's' : '') + '</span></div><div class="preview-row"><span class="preview-label">Substitutions</span><span class="preview-value">' + subCount + ' made</span></div></div><div class="modal-btn-row"><button class="modal-cancel" id="save-cancel-btn">Cancel</button><button class="modal-save" id="save-confirm-btn">&#128190; Save to Sheet</button></div>';
+    document.getElementById('save-cancel-btn').addEventListener('click', closeSaveModal);
+    document.getElementById('save-confirm-btn').addEventListener('click', doSave);
+  }
+}
+
+function doSave() {
+  renderSaveModal('saving');
+  var today = new Date().toLocaleDateString('en-NZ');
+  var opp = opponent || 'Opposition';
+
+  var scorerEntries = matchLog.filter(function(e) {
+    return e.msg.indexOf('⚽') === 0 && e.msg.indexOf('Kamo Magpies') !== -1 && e.msg.indexOf('·') !== -1;
+  });
+  var scorers = scorerEntries.map(function(e) {
+    var parts = e.msg.split('·');
+    return e.time + ' ' + (parts[1] ? parts[1].trim() : 'Unknown');
+  }).join(', ') || 'None logged';
+
+  var subEntries = matchLog.filter(function(e) { return e.msg.indexOf('🔄') === 0; });
+  var subs = subEntries.map(function(e) { return e.time + ' ' + e.msg.replace('🔄 ', ''); }).join(' | ') || 'None';
+
+  var params = 'date=' + encodeURIComponent(today) +
+    '&opponent=' + encodeURIComponent(opp) +
+    '&result=' + encodeURIComponent('Kamo ' + homeScore + ' - ' + awayScore + ' ' + opp) +
+    '&goalsFor=' + homeScore +
+    '&goalsAgainst=' + awayScore +
+    '&scorers=' + encodeURIComponent(scorers) +
+    '&subs=' + encodeURIComponent(subs);
+
+  fetch(SHEET_URL + '?' + params, { method: 'GET', mode: 'no-cors' })
+    .then(function() { renderSaveModal('success'); })
+    .catch(function() { renderSaveModal('error'); });
+}
+
+// ── TABS ──
+function switchTab(tab) {
+  ['squad','subs','log'].forEach(function(t) {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('content-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'log') renderLog();
+  if (tab === 'subs') updateSubsTab();
+  if (tab === 'squad') { cancelSub(); renderSquad(); }
+}
+
+// ── RESET ──
+function resetAll() {
+  pauseTimer();
+  homeScore = 0; awayScore = 0; gameTime = 0;
+  half = 1; halfTimeTriggered = false;
+  matchLog = []; players = []; subStep = null; playerOut = null;
+  startingIds = [1,2,3,4,5,6,7,8,9];
+  opponent = '';
+  document.getElementById('home-score-display').textContent = '0';
+  document.getElementById('away-score-display').textContent = '0';
+  document.getElementById('opponent-input').value = '';
+  updateTimerDisplay();
+  updateHalfBadge();
+  showScreen('setup');
+  renderSetup();
+}
+
+// ── SCREENS ──
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ── WIRE UP STATIC BUTTONS ──
+document.getElementById('kick-off-btn').addEventListener('click', startGame);
+document.getElementById('start-btn').addEventListener('click', toggleTimer);
+document.getElementById('reset-btn').addEventListener('click', resetAll);
+document.getElementById('home-goal-btn').addEventListener('click', function() { openGoalModal('home'); });
+document.getElementById('away-goal-btn').addEventListener('click', function() { openGoalModal('away'); });
+document.getElementById('home-undo-btn').addEventListener('click', function() { undoGoal('home'); });
+document.getElementById('away-undo-btn').addEventListener('click', function() { undoGoal('away'); });
+document.getElementById('tab-squad').addEventListener('click', function() { switchTab('squad'); });
+document.getElementById('tab-subs').addEventListener('click', function() { switchTab('subs'); });
+document.getElementById('tab-log').addEventListener('click', function() { switchTab('log'); });
+document.getElementById('save-sheet-btn').addEventListener('click', openSaveModal);
+document.getElementById('ht-start-btn').addEventListener('click', startSecondHalf);
+document.getElementById('ht-dismiss-btn').addEventListener('click', dismissHalfTime);
+document.getElementById('scorer-cancel-btn').addEventListener('click', closeScorer);
+document.getElementById('scorer-no-name-btn').addEventListener('click', function() { confirmGoal(null); });
+
+// ── INIT ──
+renderSetup();
+updateHalfBadge();
+</script>
+</body>
+</html>
